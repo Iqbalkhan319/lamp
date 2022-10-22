@@ -1,0 +1,40 @@
+- name: Setup MySQL 5.7 Server and Enable Remote Login
+  hosts: dev
+  tasks: 
+   - name: Install MySQL 5.7 repo
+     yum: 
+       name: https://repo.mysql.com//mysql80-community-release-el7-7.noarch.rpm
+       state: latest
+   - name: Disable MySQL Repo
+     shell: yum-config-manager --enable mysql80-community 
+   - name: Enable MySQL Repo
+     shell: yum-config-manager --enable mysql57-community 
+   - name: Instal MySQL Server   
+     yum:
+       name: "{{ packages }}"
+     vars:
+       packages:
+         - mysql-community-server
+         - mysql-community-client
+   - name: start and enable mysql service
+     service:
+       name: mysqld
+       state: started
+       enabled: yes
+    name: Find MySQL root password
+   shell: "echo `grep 'temporary.*root@localhost' /var/log/mysqld.log | sed 's/.*root@localhost: //'`"
+     register: mysql_root_pass
+   - debug: var=mysql_root_pass.stdout
+   - name: Enable remote login to mysql
+     lineinfile:
+        path: /etc/my.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        backup: yes
+     notify:
+        - Restart mysql
+  handlers:
+    - name: Restart mysql
+      service:
+        name: mysqld
+        state: restarted
